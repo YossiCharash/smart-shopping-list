@@ -1,5 +1,13 @@
 const STORAGE_KEY = "smart-shopping-list-v1";
+const AUTH_STORAGE_KEY = "smart-shopping-list-auth-v1";
+const PASSWORD_HASH =
+  "bf33d21d3411821c223aab06db08e58a00062b80d5525121348bbc24a6d1c674";
 
+const authScreen = document.querySelector("#authScreen");
+const authForm = document.querySelector("#authForm");
+const passwordInput = document.querySelector("#passwordInput");
+const authError = document.querySelector("#authError");
+const logoutButton = document.querySelector("#logoutButton");
 const input = document.querySelector("#messageInput");
 const parseButton = document.querySelector("#parseButton");
 const recordButton = document.querySelector("#recordButton");
@@ -26,6 +34,41 @@ let shouldKeepRecording = false;
 let baseTranscript = "";
 let recordedText = "";
 let finalTranscripts = [];
+
+document.body.classList.toggle(
+  "locked",
+  localStorage.getItem(AUTH_STORAGE_KEY) !== PASSWORD_HASH,
+);
+
+async function sha256(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const hash = await sha256(passwordInput.value);
+
+  if (hash !== PASSWORD_HASH) {
+    authError.textContent = "סיסמה לא נכונה";
+    passwordInput.select();
+    return;
+  }
+
+  localStorage.setItem(AUTH_STORAGE_KEY, hash);
+  passwordInput.value = "";
+  authError.textContent = "";
+  document.body.classList.remove("locked");
+});
+
+logoutButton.addEventListener("click", () => {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  document.body.classList.add("locked");
+  passwordInput.focus();
+});
 
 const fillerWords = [
   "צריך",

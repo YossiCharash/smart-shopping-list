@@ -13,6 +13,22 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <section class="auth-screen" id="authScreen" aria-label="כניסה פרטית">
+      <form class="auth-box" id="authForm">
+        <p class="eyebrow">גישה פרטית</p>
+        <h1>כניסה לרשימת הקניות</h1>
+        <label for="passwordInput">סיסמה</label>
+        <input
+          id="passwordInput"
+          type="password"
+          autocomplete="current-password"
+          placeholder="הקלד סיסמה"
+        />
+        <button class="primary" type="submit">כניסה</button>
+        <p class="auth-error" id="authError" role="alert"></p>
+      </form>
+    </section>
+
     <main class="app-shell">
       <section class="workspace" aria-label="אפליקציית רשימת קניות">
         <header class="topbar">
@@ -20,7 +36,10 @@
             <p class="eyebrow">רשימת קניות חכמה</p>
             <h1>תגידו או כתבו, הרשימה מסתדרת לבד.</h1>
           </div>
-          <div class="status-pill" id="savedStatus">נשמר מקומית</div>
+          <div class="top-actions">
+            <button class="logout-button" id="logoutButton" type="button">יציאה</button>
+            <div class="status-pill" id="savedStatus">נשמר מקומית</div>
+          </div>
         </header>
 
         <section class="input-panel" aria-label="הוספת מוצרים">

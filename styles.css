@@ -26,6 +26,10 @@ body {
   color: var(--ink);
 }
 
+body.locked .app-shell {
+  display: none;
+}
+
 button,
 textarea,
 input {
@@ -35,6 +39,49 @@ input {
 button {
   border: 0;
   cursor: pointer;
+}
+
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+body:not(.locked) .auth-screen {
+  display: none;
+}
+
+.auth-box {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 14px;
+  padding: 28px;
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid rgba(222, 215, 204, 0.85);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.auth-box h1 {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.auth-box input {
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #fff;
+  outline: none;
+}
+
+.auth-error {
+  min-height: 24px;
+  margin: 0;
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .app-shell {
@@ -56,6 +103,22 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 4px 2px 12px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logout-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 14px;
+  background: rgba(255, 253, 248, 0.72);
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .eyebrow {
@@ -330,7 +393,14 @@ input:focus {
     flex-direction: column;
   }
 
+  .top-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .status-pill,
+  .logout-button,
   .voice-state,
   .actions-row button,
   .dashboard-head button {
