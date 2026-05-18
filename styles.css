@@ -84,6 +84,11 @@ body:not(.locked) .auth-screen {
   font-weight: 700;
 }
 
+.auth-helper {
+  margin: 0;
+  color: var(--muted);
+}
+
 .app-shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
@@ -157,7 +162,8 @@ h2 {
 }
 
 .input-panel,
-.dashboard {
+.dashboard,
+.members-panel {
   background: rgba(255, 253, 248, 0.86);
   border: 1px solid rgba(222, 215, 204, 0.85);
   box-shadow: var(--shadow);
@@ -171,6 +177,7 @@ h2 {
 
 .input-head,
 .dashboard-head,
+.members-head,
 .actions-row,
 .list-toolbar {
   display: flex;
@@ -275,7 +282,17 @@ input:focus {
   min-height: 560px;
 }
 
+.members-panel {
+  grid-column: 1 / -1;
+  padding: 22px;
+}
+
 .dashboard-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.members-head p {
   margin: 6px 0 0;
   color: var(--muted);
 }
@@ -294,6 +311,35 @@ input:focus {
   padding: 0 14px;
   background: #fff;
   outline: none;
+}
+
+.members-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fff;
+}
+
+.member-item span {
+  overflow-wrap: anywhere;
+}
+
+.member-role {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .list-toolbar {

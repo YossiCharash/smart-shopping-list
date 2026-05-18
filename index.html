@@ -17,7 +17,8 @@
       <form class="auth-box" id="authForm">
         <p class="eyebrow">גישה פרטית</p>
         <h1>כניסה לרשימת הקניות</h1>
-        <label for="passwordInput">סיסמה</label>
+        <p class="auth-helper" id="authHelper">הכנס סיסמה כדי להיכנס.</p>
+        <label for="passwordInput" id="authInputLabel">סיסמה</label>
         <input
           id="passwordInput"
           type="password"
@@ -89,6 +90,20 @@
             <span>אפשר לכתוב משפט טבעי, להקליט, או להוסיף מוצר ידנית.</span>
           </div>
         </section>
+
+        <section class="members-panel" id="membersPanel" aria-label="חברי הרשימה">
+          <div class="members-head">
+            <div>
+              <h2>אנשים ברשימה</h2>
+              <p id="membersSummary">זמין אחרי חיבור DB ענני</p>
+            </div>
+          </div>
+          <form class="quick-add" id="memberForm">
+            <input id="memberEmailInput" type="email" placeholder="אימייל של משתמש להוספה" />
+            <button id="memberAddButton" type="submit">הוסף</button>
+          </form>
+          <ul class="members-list" id="membersList"></ul>
+        </section>
       </section>
     </main>
 
@@ -102,6 +117,8 @@
       </li>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase-config.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

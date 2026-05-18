@@ -3,10 +3,22 @@ const AUTH_STORAGE_KEY = "smart-shopping-list-auth-v1";
 const PASSWORD_HASH =
   "bf33d21d3411821c223aab06db08e58a00062b80d5525121348bbc24a6d1c674";
 
-const authScreen = document.querySelector("#authScreen");
+const supabaseConfig = window.SHOPPING_APP_SUPABASE || {};
+const hasCloudDb =
+  supabaseConfig.url &&
+  supabaseConfig.anonKey &&
+  !supabaseConfig.url.includes("PASTE_") &&
+  !supabaseConfig.anonKey.includes("PASTE_") &&
+  window.supabase;
+const db = hasCloudDb
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey)
+  : null;
+
 const authForm = document.querySelector("#authForm");
 const passwordInput = document.querySelector("#passwordInput");
 const authError = document.querySelector("#authError");
+const authHelper = document.querySelector("#authHelper");
+const authInputLabel = document.querySelector("#authInputLabel");
 const logoutButton = document.querySelector("#logoutButton");
 const input = document.querySelector("#messageInput");
 const parseButton = document.querySelector("#parseButton");
@@ -23,52 +35,25 @@ const removeDoneButton = document.querySelector("#removeDoneButton");
 const clearListButton = document.querySelector("#clearListButton");
 const savedStatus = document.querySelector("#savedStatus");
 const voiceState = document.querySelector("#voiceState");
+const membersPanel = document.querySelector("#membersPanel");
+const membersSummary = document.querySelector("#membersSummary");
+const memberForm = document.querySelector("#memberForm");
+const memberEmailInput = document.querySelector("#memberEmailInput");
+const membersList = document.querySelector("#membersList");
 
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
-let items = loadItems();
+let items = [];
+let members = [];
+let currentUser = null;
+let currentList = null;
 let recognition = null;
 let isRecording = false;
 let shouldKeepRecording = false;
 let baseTranscript = "";
 let recordedText = "";
 let finalTranscripts = [];
-
-document.body.classList.toggle(
-  "locked",
-  localStorage.getItem(AUTH_STORAGE_KEY) !== PASSWORD_HASH,
-);
-
-async function sha256(text) {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-authForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const hash = await sha256(passwordInput.value);
-
-  if (hash !== PASSWORD_HASH) {
-    authError.textContent = "סיסמה לא נכונה";
-    passwordInput.select();
-    return;
-  }
-
-  localStorage.setItem(AUTH_STORAGE_KEY, hash);
-  passwordInput.value = "";
-  authError.textContent = "";
-  document.body.classList.remove("locked");
-});
-
-logoutButton.addEventListener("click", () => {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  document.body.classList.add("locked");
-  passwordInput.focus();
-});
 
 const fillerWords = [
   "צריך",
@@ -134,10 +119,10 @@ const groceryWords = [
   "מרכך",
   "נייר",
   "נקניק",
-  "ענבים",
   "סוכר",
   "סבון",
   "סלט",
+  "ענבים",
   "עגבניות",
   "עגבניה",
   "עוף",
@@ -155,8 +140,8 @@ const groceryWords = [
   "שוקולד",
   "שמן",
   "שמפו",
-  "שניצל",
   "שמנת",
+  "שניצל",
   "תפוח",
   "תפוחים",
   "תירס",
@@ -194,7 +179,34 @@ const amountWords = [
   "קופסה",
 ];
 
-function loadItems() {
+function setLocked(locked) {
+  document.body.classList.toggle("locked", locked);
+}
+
+function configureAuthUi() {
+  if (!hasCloudDb) {
+    membersPanel.classList.add("hidden");
+    setLocked(localStorage.getItem(AUTH_STORAGE_KEY) !== PASSWORD_HASH);
+    return;
+  }
+
+  authHelper.textContent = "התחבר עם אימייל. אם אין לך משתמש, Supabase ישלח קישור כניסה.";
+  authInputLabel.textContent = "אימייל";
+  passwordInput.type = "email";
+  passwordInput.placeholder = "name@example.com";
+  passwordInput.autocomplete = "email";
+  setLocked(true);
+}
+
+async function sha256(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function loadLocalItems() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   } catch {
@@ -202,11 +214,15 @@ function loadItems() {
   }
 }
 
-function saveItems() {
+function saveLocalItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  savedStatus.textContent = "נשמר עכשיו";
+  showSaved();
+}
+
+function showSaved(text = "נשמר עכשיו") {
+  savedStatus.textContent = text;
   window.setTimeout(() => {
-    savedStatus.textContent = "נשמר מקומית";
+    savedStatus.textContent = hasCloudDb ? "מסונכרן בענן" : "נשמר מקומית";
   }, 1100);
 }
 
@@ -272,7 +288,93 @@ function extractItems(text) {
     .filter((name) => name.length > 1);
 }
 
-function addItems(names) {
+async function ensureCloudList() {
+  if (!hasCloudDb || !currentUser) return;
+
+  await db.rpc("accept_my_invites");
+
+  const { data: memberships, error: memberError } = await db
+    .from("list_members")
+    .select("list_id, role, shopping_lists(id, name, owner_id)")
+    .eq("user_id", currentUser.id)
+    .limit(1);
+
+  if (memberError) throw memberError;
+
+  if (memberships?.length) {
+    currentList = memberships[0].shopping_lists;
+    return;
+  }
+
+  const { data: list, error: listError } = await db
+    .from("shopping_lists")
+    .insert({ name: "רשימת קניות", owner_id: currentUser.id })
+    .select()
+    .single();
+
+  if (listError) throw listError;
+  currentList = list;
+
+  const { error: ownerError } = await db.from("list_members").insert({
+    list_id: list.id,
+    user_id: currentUser.id,
+    email: currentUser.email.toLowerCase(),
+    role: "owner",
+    invited_by: currentUser.id,
+    accepted_at: new Date().toISOString(),
+  });
+
+  if (ownerError) throw ownerError;
+}
+
+async function loadCloudData() {
+  if (!currentList) return;
+
+  const [{ data: cloudItems, error: itemsError }, { data: cloudMembers, error: membersError }] =
+    await Promise.all([
+      db
+        .from("shopping_items")
+        .select("id, name, done, created_at")
+        .eq("list_id", currentList.id)
+        .order("created_at", { ascending: false }),
+      db
+        .from("list_members")
+        .select("id, email, role, accepted_at")
+        .eq("list_id", currentList.id)
+        .order("created_at", { ascending: true }),
+    ]);
+
+  if (itemsError) throw itemsError;
+  if (membersError) throw membersError;
+
+  items = cloudItems || [];
+  members = cloudMembers || [];
+  render();
+  renderMembers();
+}
+
+async function initCloudSession() {
+  if (!hasCloudDb) return;
+
+  const { data } = await db.auth.getSession();
+  currentUser = data.session?.user || null;
+
+  if (!currentUser) {
+    setLocked(true);
+    return;
+  }
+
+  setLocked(false);
+  savedStatus.textContent = "מסונכרן בענן";
+  try {
+    await ensureCloudList();
+    await loadCloudData();
+  } catch (error) {
+    authError.textContent = error.message || "לא הצלחתי לטעון את ה-DB";
+  }
+}
+
+async function addItems(names) {
   const existing = new Set(items.map((item) => item.name.toLowerCase()));
   const additions = names
     .map(normalizeName)
@@ -282,17 +384,90 @@ function addItems(names) {
       if (existing.has(key)) return false;
       existing.add(key);
       return true;
-    })
-    .map((name) => ({
+    });
+
+  if (!additions.length) return;
+
+  if (hasCloudDb) {
+    const rows = additions.map((name) => ({
+      list_id: currentList.id,
+      name,
+      done: false,
+      created_by: currentUser.id,
+    }));
+    const { error } = await db.from("shopping_items").insert(rows);
+    if (error) throw error;
+    await loadCloudData();
+    showSaved();
+    return;
+  }
+
+  items = [
+    ...additions.map((name) => ({
       id: crypto.randomUUID(),
       name,
       done: false,
       createdAt: Date.now(),
-    }));
+    })),
+    ...items,
+  ];
+  saveLocalItems();
+  render();
+}
 
-  if (!additions.length) return;
-  items = [...additions, ...items];
-  saveItems();
+async function updateItemDone(item, done) {
+  if (hasCloudDb) {
+    const { error } = await db.from("shopping_items").update({ done }).eq("id", item.id);
+    if (error) throw error;
+    await loadCloudData();
+    return;
+  }
+
+  item.done = done;
+  saveLocalItems();
+  render();
+}
+
+async function deleteItem(id) {
+  if (hasCloudDb) {
+    const { error } = await db.from("shopping_items").delete().eq("id", id);
+    if (error) throw error;
+    await loadCloudData();
+    return;
+  }
+
+  items = items.filter((candidate) => candidate.id !== id);
+  saveLocalItems();
+  render();
+}
+
+async function removeDoneItems() {
+  if (hasCloudDb) {
+    const { error } = await db
+      .from("shopping_items")
+      .delete()
+      .eq("list_id", currentList.id)
+      .eq("done", true);
+    if (error) throw error;
+    await loadCloudData();
+    return;
+  }
+
+  items = items.filter((item) => !item.done);
+  saveLocalItems();
+  render();
+}
+
+async function clearItems() {
+  if (hasCloudDb) {
+    const { error } = await db.from("shopping_items").delete().eq("list_id", currentList.id);
+    if (error) throw error;
+    await loadCloudData();
+    return;
+  }
+
+  items = [];
+  saveLocalItems();
   render();
 }
 
@@ -309,18 +484,8 @@ function render() {
     checkbox.checked = item.done;
     name.textContent = item.name;
 
-    checkbox.addEventListener("change", () => {
-      item.done = checkbox.checked;
-      saveItems();
-      render();
-    });
-
-    deleteButton.addEventListener("click", () => {
-      items = items.filter((candidate) => candidate.id !== item.id);
-      saveItems();
-      render();
-    });
-
+    checkbox.addEventListener("change", () => updateItemDone(item, checkbox.checked));
+    deleteButton.addEventListener("click", () => deleteItem(item.id));
     shoppingList.append(node);
   });
 
@@ -333,10 +498,34 @@ function render() {
   whatsappButton.disabled = activeCount === 0;
 }
 
-function parseInput() {
-  const names = extractItems(input.value);
-  addItems(names);
-  if (names.length) input.value = "";
+function renderMembers() {
+  membersList.innerHTML = "";
+
+  if (!hasCloudDb) {
+    membersSummary.textContent = "זמין אחרי חיבור DB ענני";
+    return;
+  }
+
+  membersSummary.textContent = `${members.length} אנשים עם גישה לרשימה`;
+  members.forEach((member) => {
+    const node = document.createElement("li");
+    node.className = "member-item";
+    node.innerHTML = `
+      <span>${member.email}</span>
+      <span class="member-role">${member.accepted_at ? member.role : "ממתין לאישור במייל"}</span>
+    `;
+    membersList.append(node);
+  });
+}
+
+async function parseInput() {
+  try {
+    const names = extractItems(input.value);
+    await addItems(names);
+    if (names.length) input.value = "";
+  } catch (error) {
+    authError.textContent = error.message || "לא הצלחתי לשמור";
+  }
 }
 
 function buildWhatsAppMessage() {
@@ -466,6 +655,79 @@ async function startRecording() {
   }
 }
 
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  authError.textContent = "";
+
+  if (hasCloudDb) {
+    const email = passwordInput.value.trim().toLowerCase();
+    if (!email) return;
+    const { error } = await db.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    });
+    authError.textContent = error
+      ? error.message
+      : "שלחתי לך קישור כניסה למייל. פתח אותו מהמכשיר הזה.";
+    return;
+  }
+
+  const hash = await sha256(passwordInput.value);
+  if (hash !== PASSWORD_HASH) {
+    authError.textContent = "סיסמה לא נכונה";
+    passwordInput.select();
+    return;
+  }
+
+  localStorage.setItem(AUTH_STORAGE_KEY, hash);
+  passwordInput.value = "";
+  authError.textContent = "";
+  setLocked(false);
+}
+
+async function logout() {
+  if (hasCloudDb) {
+    await db.auth.signOut();
+    currentUser = null;
+    currentList = null;
+    items = [];
+    members = [];
+    render();
+    renderMembers();
+    setLocked(true);
+    return;
+  }
+
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  setLocked(true);
+  passwordInput.focus();
+}
+
+async function addMember(event) {
+  event.preventDefault();
+  if (!hasCloudDb || !currentList) return;
+
+  const email = memberEmailInput.value.trim().toLowerCase();
+  if (!email) return;
+
+  const { error } = await db.from("list_members").insert({
+    list_id: currentList.id,
+    email,
+    role: "member",
+    invited_by: currentUser.id,
+  });
+
+  if (error) {
+    authError.textContent = error.message;
+    return;
+  }
+
+  memberEmailInput.value = "";
+  await loadCloudData();
+}
+
+authForm.addEventListener("submit", handleAuthSubmit);
+logoutButton.addEventListener("click", logout);
 parseButton.addEventListener("click", parseInput);
 clearInputButton.addEventListener("click", () => {
   input.value = "";
@@ -479,17 +741,10 @@ manualAddButton.addEventListener("click", () => {
 manualItemInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") manualAddButton.click();
 });
+memberForm.addEventListener("submit", addMember);
 whatsappButton.addEventListener("click", openWhatsApp);
-removeDoneButton.addEventListener("click", () => {
-  items = items.filter((item) => !item.done);
-  saveItems();
-  render();
-});
-clearListButton.addEventListener("click", () => {
-  items = [];
-  saveItems();
-  render();
-});
+removeDoneButton.addEventListener("click", removeDoneItems);
+clearListButton.addEventListener("click", clearItems);
 recordButton.addEventListener("click", () => {
   if (!recognition) return;
   if (isRecording) {
@@ -500,5 +755,17 @@ recordButton.addEventListener("click", () => {
   startRecording();
 });
 
+if (hasCloudDb) {
+  db.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    initCloudSession();
+  });
+} else {
+  items = loadLocalItems();
+}
+
+configureAuthUi();
 setupSpeechRecognition();
 render();
+renderMembers();
+initCloudSession();
