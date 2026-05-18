@@ -1,0 +1,8 @@
+{
+  "name": "smart-shopping-list",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "python -m http.server 5173 --bind 127.0.0.1"
+  }
+}

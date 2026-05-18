@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>רשימת קניות חכמה</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="אפליקציית רשימת קניות">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">רשימת קניות חכמה</p>
+            <h1>תגידו או כתבו, הרשימה מסתדרת לבד.</h1>
+          </div>
+          <div class="status-pill" id="savedStatus">נשמר מקומית</div>
+        </header>
+
+        <section class="input-panel" aria-label="הוספת מוצרים">
+          <div class="input-head">
+            <label for="messageInput">מה צריך לקנות?</label>
+            <div class="voice-state" id="voiceState">מוכן להקלטה</div>
+          </div>
+          <textarea
+            id="messageInput"
+            placeholder="לדוגמה: צריך חלב, שתי חלות, עגבניות, קפה שחור וחיתולים"
+            rows="5"
+          ></textarea>
+          <div class="actions-row">
+            <button class="primary" id="parseButton" type="button">
+              <span>צור רשימת קניות</span>
+            </button>
+            <button class="icon-text" id="recordButton" type="button">
+              <span class="mic-icon" aria-hidden="true"></span>
+              <span>הקלטה</span>
+            </button>
+            <button class="ghost" id="clearInputButton" type="button">נקה טקסט</button>
+          </div>
+        </section>
+
+        <section class="dashboard" aria-label="דשבורד מוצרים">
+          <div class="dashboard-head">
+            <div>
+              <h2>הדשבורד שלך</h2>
+              <p id="summaryLine">אין מוצרים עדיין</p>
+            </div>
+            <button class="whatsapp" id="whatsappButton" type="button">שלח בוואטסאפ</button>
+          </div>
+
+          <div class="quick-add">
+            <input id="manualItemInput" type="text" placeholder="הוספת מוצר ידנית" />
+            <button id="manualAddButton" type="button">הוסף</button>
+          </div>
+
+          <div class="list-toolbar">
+            <button id="removeDoneButton" type="button">הסר מסומנים</button>
+            <button id="clearListButton" type="button">נקה רשימה</button>
+          </div>
+
+          <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
+          <div class="empty-state" id="emptyState">
+            <strong>הרשימה מחכה לקול או לטקסט שלך.</strong>
+            <span>אפשר לכתוב משפט טבעי, להקליט, או להוסיף מוצר ידנית.</span>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="itemTemplate">
+      <li class="shopping-item">
+        <label>
+          <input class="item-check" type="checkbox" />
+          <span class="item-name"></span>
+        </label>
+        <button class="delete-item" type="button" aria-label="הסר מוצר">×</button>
+      </li>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
