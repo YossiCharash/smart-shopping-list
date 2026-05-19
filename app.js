@@ -16,9 +16,16 @@ const db = hasCloudDb
 
 const authForm = document.querySelector("#authForm");
 const passwordInput = document.querySelector("#passwordInput");
+const loginPasswordInput = document.querySelector("#loginPasswordInput");
+const passwordRow = document.querySelector("#passwordRow");
+const forgotPasswordButton = document.querySelector("#forgotPasswordButton");
 const authError = document.querySelector("#authError");
 const authHelper = document.querySelector("#authHelper");
 const authInputLabel = document.querySelector("#authInputLabel");
+const resetScreen = document.querySelector("#resetScreen");
+const resetForm = document.querySelector("#resetForm");
+const newPasswordInput = document.querySelector("#newPasswordInput");
+const resetError = document.querySelector("#resetError");
 const logoutButton = document.querySelector("#logoutButton");
 const input = document.querySelector("#messageInput");
 const parseButton = document.querySelector("#parseButton");
@@ -183,18 +190,25 @@ function setLocked(locked) {
   document.body.classList.toggle("locked", locked);
 }
 
+function setResetting(resetting) {
+  document.body.classList.toggle("resetting", resetting);
+  resetScreen.classList.toggle("hidden", !resetting);
+}
+
 function configureAuthUi() {
   if (!hasCloudDb) {
     membersPanel.classList.add("hidden");
+    forgotPasswordButton.classList.remove("hidden");
     setLocked(localStorage.getItem(AUTH_STORAGE_KEY) !== PASSWORD_HASH);
     return;
   }
 
-  authHelper.textContent = "התחבר עם אימייל. אם אין לך משתמש, Supabase ישלח קישור כניסה.";
+  authHelper.textContent = "התחבר עם אימייל וסיסמה. אם שכחת, אפשר לשלוח קישור איפוס למייל.";
   authInputLabel.textContent = "אימייל";
   passwordInput.type = "email";
   passwordInput.placeholder = "name@example.com";
   passwordInput.autocomplete = "email";
+  passwordRow.classList.remove("hidden");
   setLocked(true);
 }
 
@@ -661,14 +675,13 @@ async function handleAuthSubmit(event) {
 
   if (hasCloudDb) {
     const email = passwordInput.value.trim().toLowerCase();
-    if (!email) return;
-    const { error } = await db.auth.signInWithOtp({
+    const password = loginPasswordInput.value;
+    if (!email || !password) return;
+    const { error } = await db.auth.signInWithPassword({
       email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+      password,
     });
-    authError.textContent = error
-      ? error.message
-      : "שלחתי לך קישור כניסה למייל. פתח אותו מהמכשיר הזה.";
+    authError.textContent = error ? error.message : "";
     return;
   }
 
@@ -683,6 +696,54 @@ async function handleAuthSubmit(event) {
   passwordInput.value = "";
   authError.textContent = "";
   setLocked(false);
+}
+
+async function sendPasswordReset() {
+  authError.textContent = "";
+
+  if (!hasCloudDb) {
+    authError.textContent = "איפוס סיסמה במייל דורש חיבור Supabase DB.";
+    return;
+  }
+
+  const email = passwordInput.value.trim().toLowerCase();
+  if (!email) {
+    authError.textContent = "צריך להקליד אימייל קודם";
+    passwordInput.focus();
+    return;
+  }
+
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname,
+  });
+
+  authError.textContent = error
+    ? error.message
+    : "שלחתי למייל קישור לאיפוס סיסמה.";
+}
+
+async function updatePassword(event) {
+  event.preventDefault();
+  resetError.textContent = "";
+
+  if (!hasCloudDb) return;
+
+  const newPassword = newPasswordInput.value;
+  if (newPassword.length < 8) {
+    resetError.textContent = "הסיסמה צריכה להיות לפחות 8 תווים";
+    return;
+  }
+
+  const { error } = await db.auth.updateUser({ password: newPassword });
+  if (error) {
+    resetError.textContent = error.message;
+    return;
+  }
+
+  newPasswordInput.value = "";
+  setResetting(false);
+  setLocked(false);
+  await initCloudSession();
 }
 
 async function logout() {
@@ -727,6 +788,8 @@ async function addMember(event) {
 }
 
 authForm.addEventListener("submit", handleAuthSubmit);
+forgotPasswordButton.addEventListener("click", sendPasswordReset);
+resetForm.addEventListener("submit", updatePassword);
 logoutButton.addEventListener("click", logout);
 parseButton.addEventListener("click", parseInput);
 clearInputButton.addEventListener("click", () => {
@@ -756,8 +819,14 @@ recordButton.addEventListener("click", () => {
 });
 
 if (hasCloudDb) {
-  db.auth.onAuthStateChange((_event, session) => {
+  db.auth.onAuthStateChange((event, session) => {
     currentUser = session?.user || null;
+    if (event === "PASSWORD_RECOVERY") {
+      setResetting(true);
+      setLocked(false);
+      newPasswordInput.focus();
+      return;
+    }
     initCloudSession();
   });
 } else {

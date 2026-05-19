@@ -25,8 +25,36 @@
           autocomplete="current-password"
           placeholder="הקלד סיסמה"
         />
+        <label class="password-row hidden" id="passwordRow" for="loginPasswordInput">
+          סיסמה
+          <input
+            id="loginPasswordInput"
+            type="password"
+            autocomplete="current-password"
+            placeholder="הקלד סיסמה"
+          />
+        </label>
         <button class="primary" type="submit">כניסה</button>
+        <button class="link-button" id="forgotPasswordButton" type="button">
+          שכחתי סיסמה
+        </button>
         <p class="auth-error" id="authError" role="alert"></p>
+      </form>
+    </section>
+
+    <section class="auth-screen hidden" id="resetScreen" aria-label="איפוס סיסמה">
+      <form class="auth-box" id="resetForm">
+        <p class="eyebrow">איפוס סיסמה</p>
+        <h1>בחר סיסמה חדשה</h1>
+        <label for="newPasswordInput">סיסמה חדשה</label>
+        <input
+          id="newPasswordInput"
+          type="password"
+          autocomplete="new-password"
+          placeholder="לפחות 8 תווים"
+        />
+        <button class="primary" type="submit">עדכן סיסמה</button>
+        <p class="auth-error" id="resetError" role="alert"></p>
       </form>
     </section>
 
